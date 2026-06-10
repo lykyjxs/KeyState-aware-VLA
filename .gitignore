@@ -1,0 +1,51 @@
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environments
+.env
+.venv/
+venv/
+conda_env/
+
+# Experiment outputs and logs
+wandb/
+runs/
+outputs/
+results/
+checkpoints/
+logs/
+*.log
+
+# Large model/data artifacts
+*.ckpt
+*.pt
+*.pth
+*.pkl
+*.npy
+*.npz
+*.h5
+*.hdf5
+*.safetensors
+
+# Local datasets
+_data/
+data/
+datasets/
+
+# Reference papers and external source snapshots
+Paper list/*.pdf
+source code/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
