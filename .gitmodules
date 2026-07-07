@@ -1,4 +1,4 @@
 [submodule "third_party/RoboTwin"]
 	path = third_party/RoboTwin
 	url = ../RoboTwin.git
-	branch = keystate-stage0-labeler
+	branch = ablation/stack-bowls-stage3-no-fusion

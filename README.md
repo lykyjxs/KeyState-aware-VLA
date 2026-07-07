@@ -76,7 +76,7 @@ git -C third_party/RoboTwin log --oneline --graph --decorate --all --simplify-by
 
 ## 2. Remote 与 clone
 
-### 2.1 GitHub remote
+### 2.1 GitHub remote（历史备份）
 
 顶层仓库：
 
@@ -90,7 +90,9 @@ RoboTwin 子模块：
 ../RoboTwin.git
 ```
 
-### 2.2 remote remote
+GitHub 是external账号下的历史备份。project maintenance后，organization内部应优先使用 remote remote。
+
+### 2.2 remote remote（project主仓库）
 
 organization remote 顶层仓库：
 
@@ -98,20 +100,22 @@ organization remote 顶层仓库：
 <repository-url>
 ```
 
-注意：当前 `.gitmodules` 中 RoboTwin 子模块仍指向 GitHub：
+organization remote RoboTwin 子模块仓库：
+
+```text
+../RoboTwin.git
+```
+
+当前 `.gitmodules` 中 RoboTwin 子模块也指向organization remote：
 
 ```text
 [submodule "third_party/RoboTwin"]
     path = third_party/RoboTwin
     url = ../RoboTwin.git
-    branch = keystate-stage0-labeler
+    branch = ablation/stack-bowls-stage3-no-fusion
 ```
 
-如果需要让organization remote 完全自包含，需要再创建一个 remote RoboTwin 仓库，然后：
-
-1. 把 `third_party/RoboTwin` 也 push 到organization remote。
-2. 修改 `.gitmodules` 中的 `url`。
-3. 提交 `.gitmodules` 和 submodule pointer。
+因此从organization remote clone 顶层仓库时，`--recurse-submodules` 会继续从organization remote 拉取 RoboTwin，不依赖external GitHub。
 
 ### 2.3 clone 命令
 
