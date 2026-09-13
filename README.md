@@ -29,19 +29,11 @@ KeyState-aware VLA introduces an explicit representation of these interaction st
 
 ## System overview
 
-```mermaid
-flowchart LR
-    A[Scripted robot demonstrations] --> B[Key-state annotation]
-    B --> C[Processed trajectory data]
-    C --> D[LeRobot dataset]
-    D --> E[Stage 1: discrete heads]
-    E --> F[Stage 2: latent and pose heads]
-    F --> G[Stage 3: key-state fusion]
-    G --> H[Adaptive action chunk scheduler]
-    H --> I[RoboTwin rollout evaluation]
-```
+The system is organized as a staged experimental pipeline that begins with scripted robot demonstrations and ends with closed-loop policy evaluation. Raw trajectories are first annotated with structured key-state information, including interaction-window boundaries, semantic phases, time-to-entry targets, latent descriptors, and entry poses. The enriched trajectories are then validated and converted into a LeRobot-compatible dataset that can be consumed by the OpenPI/Pi0 training stack.
 
-The pipeline separates representation learning from action conditioning. Early stages verify that key-state targets can be predicted accurately before the predicted memory is fused into the action path.
+Training is intentionally divided into several stages. The first stage introduces discrete auxiliary prediction heads while preserving the original action-generation path. The second stage adds continuous latent and geometric targets, allowing the representation quality to be evaluated at a finer level. The third stage uses predicted key-state features as additional memory for action generation. This progression makes it possible to identify whether a performance change originates from label quality, auxiliary prediction quality, feature fusion, or rollout scheduling.
+
+The final evaluation layer combines ordinary policy rollouts, adaptive action execution, paired baseline comparisons, and offline head diagnostics. Keeping these components separate allows experiments to reuse the same data and policy checkpoints while varying only the feature under investigation. The result is a research workflow that supports controlled ablations without requiring multiple disconnected implementations.
 
 ## Key-state representation
 
@@ -116,15 +108,9 @@ This stage tests whether the policy representation contains sufficient informati
 
 Stage 3 introduces predicted key-state memory into the action path through late cross-attention.
 
-```text
-action tokens -----> query
-                     |
-                     v
-              cross-attention -----> residual update -----> action projection
-                     ^
-                     |
-predicted type + horizon + phase + latent descriptor
-```
+Action-token hidden states serve as the queries for a dedicated cross-attention layer. Predicted checkpoint type, horizon, semantic phase, and latent descriptor features are projected into a compact sequence of memory tokens that supplies the keys and values. The attention output is added to the action representation as a residual update immediately before the final action projection.
+
+This late-fusion placement limits interference with the pretrained visual and language processing path. It also provides a clear ablation boundary: the same checkpoint can be evaluated with the auxiliary heads active, with the fusion path disabled, or with both prediction and fusion enabled. Ground-truth key-state inputs may be used for diagnostic upper-bound experiments, while predicted inputs represent the intended deployment setting.
 
 A simplified formulation is:
 
@@ -142,15 +128,9 @@ The learnable residual scale `alpha` allows the fusion path to be introduced wit
 
 The rollout scheduler uses the predicted horizon class to change how many actions are executed before replanning.
 
-```mermaid
-flowchart TD
-    A[Predict action chunk and key state] --> B{Inside key window?}
-    B -- No --> C[Execute a longer chunk]
-    B -- Yes --> D[Execute a shorter chunk]
-    C --> E[Observe and replan]
-    D --> E
-    E --> A
-```
+At every policy query, the model produces an action chunk together with an estimate of the current key-state horizon. When the prediction indicates that the robot is outside a critical interaction window, the rollout controller can execute a larger portion of the chunk before requesting another observation. When the prediction indicates that a critical window has been entered, the controller executes fewer actions and replans more frequently. The policy therefore retains efficient long-range motion while gaining additional feedback opportunities around contact-sensitive events.
+
+The scheduling decision is isolated from the policy network so that execution behavior can be studied independently from representation learning. Experiments can compare a fixed baseline schedule, a prediction-driven schedule, and fallback behavior under uncertain or unavailable key-state outputs. This separation is useful when measuring whether improvements come from better action features, higher replanning frequency, or the combination of both.
 
 A typical two-mode schedule uses a longer chunk outside the key window and a shorter chunk inside it. The exact values are configurable through the rollout scripts:
 
@@ -164,27 +144,11 @@ This design preserves efficient motion in predictable regions while increasing r
 
 ## Data flow
 
-```text
-RoboTwin demonstrations
-        |
-        v
-raw HDF5 trajectories
-        |
-        +--> key-state labeling and validation
-        |
-        v
-processed Aloha-style HDF5
-        |
-        v
-LeRobot dataset
-        |
-        +--> normalization statistics
-        +--> Stage 1 supervision
-        +--> Stage 2 descriptors and key poses
-        |
-        v
-OpenPI/Pi0 training and rollout evaluation
-```
+Data preparation begins with RoboTwin demonstrations stored as raw HDF5 trajectories. The key-state annotation utilities associate trajectory frames with checkpoint windows, temporal horizons, semantic task phases, and geometric targets. Validation tools inspect the resulting arrays for missing fields, invalid transitions, inconsistent sequence lengths, and unusual label distributions before any training conversion is performed.
+
+The validated trajectories are transformed into an Aloha-style representation and then converted into a LeRobot dataset. The conversion step preserves robot observations and actions while exposing key-state targets as model-readable observation fields. Dataset statistics are generated from the training split and reused by the policy configuration so that normalization remains consistent across staged training, offline diagnostics, and rollout evaluation.
+
+Stage 1 consumes the discrete checkpoint and phase targets. Stage 2 additionally consumes latent descriptors and absolute entry poses. Stage 3 loads the earlier weights, constructs key-state memory from selected predictions, and enables the fusion path used by the action model. Evaluation scripts then load the same configuration surface to ensure that dataset identity, normalization assets, checkpoint initialization, seed selection, and rollout scheduling can be recorded consistently.
 
 Important conversion utilities include:
 
@@ -197,21 +161,9 @@ third_party/RoboTwin/policy/pi0/scripts/inspect_keystate_h_entry_buckets.py
 
 ## Repository layout
 
-```text
-.
-├── README.md
-├── media/
-│   ├── qualitative-comparison-preview.gif
-│   └── qualitative-comparison.mp4
-└── third_party/
-    ├── README.md
-    └── RoboTwin/                         # Git submodule
-        ├── envs/                         # Tasks and key-state labeling
-        ├── policy/pi0/                   # OpenPI/Pi0 integration
-        ├── script/                       # Training and rollout entry points
-        ├── docs/                         # Technical stage documentation
-        └── task_config/                  # RoboTwin task configurations
-```
+The repository root contains this project overview, the qualitative comparison media, and the RoboTwin integration as a Git submodule under `third_party/RoboTwin`. The `media` directory stores the lightweight animated preview and the original H.264 comparison video used in the qualitative demonstration.
+
+Inside the RoboTwin submodule, `envs` contains task definitions and key-state labeling utilities, `policy/pi0` contains the OpenPI/Pi0 model and training integration, `script` contains staged training and rollout entry points, `docs` contains implementation notes for the experimental stages, and `task_config` contains simulator task configurations. Keeping the upstream environment and policy implementation in a submodule makes the project boundary explicit while allowing the experiment-specific branch to be versioned independently.
 
 ## Quick start
 
