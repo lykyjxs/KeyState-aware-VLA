@@ -1,1 +1,9 @@
-RoboTwin will be added here as a Git submodule after the private RoboTwin repository is created.
+# Third-party components
+
+RoboTwin is included in this directory as a Git submodule.
+
+Initialize it from the repository root with:
+
+```bash
+git submodule update --init --recursive
+```
