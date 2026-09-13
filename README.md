@@ -8,7 +8,7 @@ The project is built around RoboTwin and an OpenPI/Pi0 policy stack. The impleme
 
 The following paired rollout shows a representative episode in which the baseline policy fails while KeyState-aware VLA completes the task. The animated preview is stored directly in this repository; click it to open the original H.264 MP4.
 
-[![Qualitative comparison between the baseline and KeyState-aware VLA](media/qualitative-comparison-preview.gif)](media/qualitative-comparison.mp4)
+[![Qualitative comparison between the baseline and KeyState-aware VLA](media/qualitative-comparison-preview.gif)](media/qualitative-comparison.mp4?raw=1)
 
 ## Highlights
 
